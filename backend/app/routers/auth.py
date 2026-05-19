@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from pathlib import Path
+from uuid import uuid4
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -24,11 +28,15 @@ from app.services.auth_service import (
     get_user_by_email,
     update_user_password,
 )
-from app.services.email_service import send_notification_email, send_otp_email
+from app.services.email_service import EmailDeliveryError, send_notification_email, send_otp_email
 from app.services.otp_service import create_otp, verify_otp
 from app.utils.security import create_access_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+PROFILE_PHOTO_DIR = Path(__file__).resolve().parent.parent / "static" / "profile_photos"
+ALLOWED_PROFILE_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_PROFILE_PHOTO_SIZE = 3 * 1024 * 1024
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
@@ -42,8 +50,18 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)) -> User:
     user = create_user(db, user_data)
     send_notification_email(
         user.email,
-        "Registration successful",
-        f"Hello {user.full_name}, your Hospital Management System account has been registered.",
+        "Your Hospital Management System account was created",
+        (
+            f"Dear {user.full_name},\n\n"
+            "Your account has been successfully created and verified through OTP authentication.\n\n"
+            "You can now securely sign in to the Hospital Management System using the following email address:\n\n"
+            f"Email: {user.email}\n"
+            f"Role: {user.role.value.replace('_', ' ').title()}\n\n"
+            "If you did not request this account creation or believe this activity was unauthorized, "
+            "please contact the system administrator immediately.\n\n"
+            "Thank you,\n"
+            "Hospital Management System"
+        ),
     )
     return user
 
@@ -61,7 +79,13 @@ def request_registration_otp(
         )
 
     otp = create_otp(db, user_data.email, OtpPurpose.registration)
-    send_otp_email(user_data.email, otp, "registration")
+    try:
+        send_otp_email(user_data.email, otp, "registration")
+    except EmailDeliveryError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not send OTP email. Check SMTP settings.",
+        )
     return MessageResponse(message="OTP sent to your email address")
 
 
@@ -85,14 +109,28 @@ def verify_registration(
     user = create_user(db, user_data)
     send_notification_email(
         user.email,
-        "Registration successful",
-        f"Hello {user.full_name}, your Hospital Management System account has been registered.",
+        "Your Hospital Management System account was created",
+        (
+            f"Dear {user.full_name},\n\n"
+            "Your account has been successfully created and verified through OTP authentication.\n\n"
+            "You can now securely sign in to the Hospital Management System using the following email address:\n\n"
+            f"Email: {user.email}\n"
+            f"Role: {user.role.value.replace('_', ' ').title()}\n\n"
+            "If you did not request this account creation or believe this activity was unauthorized, "
+            "please contact the system administrator immediately.\n\n"
+            "Thank you,\n"
+            "Hospital Management System"
+        ),
     )
     return user
 
 
 @router.post("/login", response_model=Token)
-def login_user(credentials: UserLogin, db: Session = Depends(get_db)) -> Token:
+def login_user(
+    credentials: UserLogin,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Token:
     user = authenticate_user(db, credentials.email, credentials.password)
     if user is None:
         existing_user = get_user_by_email(db, credentials.email)
@@ -104,10 +142,19 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)) -> Token:
         )
 
     access_token = create_access_token(subject=str(user.id), role=user.role.value)
+    client_ip = request.client.host if request.client else "Unknown"
+    login_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     send_notification_email(
         user.email,
-        "Login notification",
-        f"Hello {user.full_name}, your account was logged in successfully.",
+        "New sign-in to your Hospital Management System account",
+        (
+            f"Dear {user.full_name},\n"
+            "Your account was signed in successfully.\n\n"
+            f"Account Email: {user.email}\n"
+            f"Account Role: {user.role.value.replace('_', ' ').title()}\n"
+            f"Login Time: {login_time}\n"
+            f"IP Address: {client_ip}"
+        ),
     )
     return Token(access_token=access_token, user=user)
 
@@ -125,7 +172,13 @@ def forgot_password(
         )
 
     otp = create_otp(db, request_data.email, OtpPurpose.password_reset)
-    send_otp_email(request_data.email, otp, "password reset")
+    try:
+        send_otp_email(request_data.email, otp, "password reset")
+    except EmailDeliveryError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Could not send password reset email. Check SMTP settings.",
+        )
     return MessageResponse(message="Password reset OTP sent to your email address")
 
 
@@ -149,8 +202,11 @@ def reset_password(
     update_user_password(db, user, request_data.new_password)
     send_notification_email(
         user.email,
-        "Password changed",
-        "Your Hospital Management System password was changed successfully.",
+        "Your Hospital Management System password was reset",
+        (
+            f"Dear {user.full_name},\n\n"
+            "Your password was reset successfully using OTP verification. You can now sign in with your new password."
+        ),
     )
     return MessageResponse(message="Password reset successfully")
 
@@ -171,8 +227,11 @@ def change_password(
     update_user_password(db, current_user, request_data.new_password)
     send_notification_email(
         current_user.email,
-        "Password changed",
-        "Your Hospital Management System password was changed successfully.",
+        "Your Hospital Management System password was changed",
+        (
+            f"Dear {current_user.full_name},\n\n"
+            "Your password was changed successfully from your profile. You can continue using your account normally."
+        ),
     )
     return MessageResponse(message="Password changed successfully")
 
@@ -197,6 +256,36 @@ def update_current_user_profile(
 
     current_user.full_name = profile_data.full_name.strip()
     current_user.email = profile_data.email
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.post("/profile/photo", response_model=UserRead)
+async def upload_profile_photo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    if file.content_type not in ALLOWED_PROFILE_PHOTO_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Profile photo must be a JPG, PNG, or WebP image",
+        )
+    if not file.filename:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="File is required")
+
+    content = await file.read()
+    if len(content) > MAX_PROFILE_PHOTO_SIZE:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Profile photo must be 3 MB or less")
+
+    PROFILE_PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = Path(file.filename).suffix.lower()
+    stored_name = f"{uuid4().hex}{suffix}"
+    stored_path = PROFILE_PHOTO_DIR / stored_name
+    stored_path.write_bytes(content)
+
+    current_user.profile_photo_url = f"/static/profile_photos/{stored_name}"
     db.commit()
     db.refresh(current_user)
     return current_user

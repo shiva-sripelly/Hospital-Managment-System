@@ -1,5 +1,5 @@
 import React from "react";
-import { CalendarCheck, CalendarClock, Stethoscope, Users } from "lucide-react";
+import { Bell, CalendarCheck, CalendarClock, FileText, FlaskConical, FolderOpen, Receipt, Stethoscope, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import LoadingSpinner from "../components/LoadingSpinner";
 import PageHeader from "../components/PageHeader";
@@ -11,7 +11,11 @@ const cards = [
   { key: "total_patients", label: "Patients", icon: Users, color: "text-brand-600", bg: "bg-brand-50" },
   { key: "total_doctors", label: "Doctors", icon: Stethoscope, color: "text-mint-600", bg: "bg-teal-50" },
   { key: "total_appointments", label: "Appointments", icon: CalendarClock, color: "text-indigo-600", bg: "bg-indigo-50" },
-  { key: "completed_appointments", label: "Completed", icon: CalendarCheck, color: "text-emerald-600", bg: "bg-emerald-50" }
+  { key: "completed_appointments", label: "Completed", icon: CalendarCheck, color: "text-emerald-600", bg: "bg-emerald-50" },
+  { key: "total_bills", label: "Bills", icon: Receipt, color: "text-amber-600", bg: "bg-amber-50" },
+  { key: "total_prescriptions", label: "Prescriptions", icon: FileText, color: "text-cyan-600", bg: "bg-cyan-50" },
+  { key: "total_lab_tests", label: "Lab Tests", icon: FlaskConical, color: "text-violet-600", bg: "bg-violet-50" },
+  { key: "total_medical_records", label: "Medical Records", icon: FolderOpen, color: "text-rose-600", bg: "bg-rose-50" }
 ];
 
 export default function DashboardPage() {
@@ -37,7 +41,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="Basic statistics for hospital operations." />
+      <PageHeader title="Dashboard" description="Advanced statistics for hospital operations." />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon;
@@ -68,6 +72,25 @@ export default function DashboardPage() {
         <div className="panel p-5">
           <p className="text-sm font-semibold text-slate-500">Active Users</p>
           <p className="mt-2 text-2xl font-bold text-slate-950">{stats?.active_users ?? 0}</p>
+        </div>
+        <div className="panel p-5">
+          <p className="text-sm font-semibold text-slate-500">Paid Revenue</p>
+          <p className="mt-2 text-2xl font-bold text-slate-950">₹{Number(stats?.total_revenue || 0).toLocaleString("en-IN")}</p>
+        </div>
+        <div className="panel p-5">
+          <p className="text-sm font-semibold text-slate-500">Pending Bills</p>
+          <p className="mt-2 text-2xl font-bold text-slate-950">{stats?.pending_bills ?? 0}</p>
+        </div>
+        <div className="panel p-5">
+          <p className="text-sm font-semibold text-slate-500">Completed Lab Tests</p>
+          <p className="mt-2 text-2xl font-bold text-slate-950">{stats?.completed_lab_tests ?? 0}</p>
+        </div>
+        <div className="panel p-5">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-500">Unread Notifications</p>
+            <Bell className="h-5 w-5 text-slate-400" />
+          </div>
+          <p className="mt-2 text-2xl font-bold text-slate-950">{stats?.unread_notifications ?? 0}</p>
         </div>
       </div>
     </div>

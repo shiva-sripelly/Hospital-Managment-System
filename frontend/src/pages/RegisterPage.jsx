@@ -17,6 +17,7 @@ const initialForm = {
 
 const roleOptions = [
   { value: "doctor", label: "Doctor" },
+  { value: "lab_technician", label: "Lab Technician" },
   { value: "receptionist", label: "Receptionist" },
   { value: "patient", label: "Patient" }
 ];
@@ -91,27 +92,27 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-8">
-      <section className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-soft">
-        <p className="text-sm font-bold uppercase tracking-wide text-brand-600">Create account</p>
-        <h1 className="mt-2 text-3xl font-bold text-slate-950">Register</h1>
+    <main className="grid min-h-screen place-items-center bg-slate-50 px-4 py-8 dark:bg-slate-950">
+      <section className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-soft dark:border dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+        <p className="text-sm font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">Create account</p>
+        <h1 className="mt-2 text-3xl font-bold text-slate-950 dark:text-white">Register</h1>
         <form className="mt-8 grid gap-4" onSubmit={completeRegistration}>
           <FormField label="Full Name" name="full_name" value={form.full_name} onChange={handleChange} error={errors.full_name} required />
           <FormField label="Email" name="email" type="email" value={form.email} onChange={handleChange} error={errors.email} required />
           <FormField label="Password" name="password" type="password" value={form.password} onChange={handleChange} error={errors.password} required />
           <FormField label="Register As" name="role" as="select" options={roleOptions} value={form.role} onChange={handleChange} error={errors.role} required />
-          <button type="button" className="btn-secondary" onClick={requestOtp} disabled={loading}>
+          <button type="button" className="auth-secondary" onClick={requestOtp} disabled={loading}>
             {loading && !otpSent ? "Sending OTP..." : otpSent ? "Resend OTP" : "Click here to get OTP"}
           </button>
           {otpSent ? (
             <>
               <FormField label="OTP" name="otp" type="tel" value={form.otp} onChange={handleChange} error={errors.otp} required />
-              <button type="submit" className="btn-primary" disabled={loading}>
+              <button type="submit" className="auth-primary" disabled={loading}>
                 {loading ? "Please wait..." : "Verify OTP & Register"}
               </button>
             </>
           ) : null}
-          <Link to="/login" className="btn-secondary">
+          <Link to="/login" className="auth-secondary">
             Back to Login
           </Link>
         </form>

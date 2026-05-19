@@ -9,5 +9,12 @@ export const authService = {
   resetPassword: (payload) => api.post("/auth/reset-password", payload),
   changePassword: (payload) => api.post("/auth/change-password", payload),
   profile: () => api.get("/auth/profile"),
-  updateProfile: (payload) => api.put("/auth/profile", payload)
+  updateProfile: (payload) => api.put("/auth/profile", payload),
+  uploadProfilePhoto: (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post("/auth/profile/photo", formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+  }
 };

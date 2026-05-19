@@ -27,6 +27,14 @@ def get_doctor_for_appointment(db: Session, doctor_id: int) -> Doctor | None:
     return db.get(Doctor, doctor_id)
 
 
+def get_patient_by_email(db: Session, email: str) -> Patient | None:
+    return db.scalar(select(Patient).where(Patient.email == email))
+
+
+def get_doctor_by_email(db: Session, email: str) -> Doctor | None:
+    return db.scalar(select(Doctor).where(Doctor.email == email))
+
+
 def find_doctor_slot(
     db: Session,
     doctor_id: int,
@@ -51,35 +59,31 @@ def list_appointments(
     skip: int = 0,
     limit: int = 100,
     search: str | None = None,
+    patient_id: int | None = None,
+    doctor_id: int | None = None,
 ) -> list[Appointment]:
     query = (
         select(Appointment)
         .join(Patient, Appointment.patient_id == Patient.id)
         .join(Doctor, Appointment.doctor_id == Doctor.id)
-        .order_by(Appointment.appointment_date.desc(), Appointment.appointment_time.desc())
-        .offset(skip)
-        .limit(limit)
     )
+    if patient_id is not None:
+        query = query.where(Appointment.patient_id == patient_id)
+    if doctor_id is not None:
+        query = query.where(Appointment.doctor_id == doctor_id)
     if search:
         search_term = f"%{search.strip()}%"
-        query = (
-            select(Appointment)
-            .join(Patient, Appointment.patient_id == Patient.id)
-            .join(Doctor, Appointment.doctor_id == Doctor.id)
-            .where(
-                or_(
-                    Patient.full_name.ilike(search_term),
-                    Patient.patient_code.ilike(search_term),
-                    Doctor.full_name.ilike(search_term),
-                    Doctor.doctor_code.ilike(search_term),
-                    cast(Appointment.appointment_date, String).ilike(search_term),
-                    cast(Appointment.status, String).ilike(search_term),
-                )
+        query = query.where(
+            or_(
+                Patient.full_name.ilike(search_term),
+                Patient.patient_code.ilike(search_term),
+                Doctor.full_name.ilike(search_term),
+                Doctor.doctor_code.ilike(search_term),
+                cast(Appointment.appointment_date, String).ilike(search_term),
+                cast(Appointment.status, String).ilike(search_term),
             )
-            .order_by(Appointment.appointment_date.desc(), Appointment.appointment_time.desc())
-            .offset(skip)
-            .limit(limit)
         )
+    query = query.order_by(Appointment.appointment_date.desc(), Appointment.appointment_time.desc()).offset(skip).limit(limit)
     return list(db.scalars(query))
 
 

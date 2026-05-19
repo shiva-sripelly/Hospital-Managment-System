@@ -26,20 +26,20 @@ export default function ListControls({
       <button className="btn-secondary" type="submit" disabled={loading}>
         Search
       </button>
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 lg:justify-start">
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-950 lg:justify-start">
         <button
           type="button"
-          className="rounded-md p-2 text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md p-2 text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800"
           onClick={onPrevious}
           disabled={loading || page <= 1}
           aria-label="Previous page"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <span className="min-w-16 text-center text-sm font-bold text-slate-600">Page {page}</span>
+        <span className="min-w-16 text-center text-sm font-bold text-slate-600 dark:text-slate-300">Page {page}</span>
         <button
           type="button"
-          className="rounded-md p-2 text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md p-2 text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800"
           onClick={onNext}
           disabled={loading || !hasNext}
           aria-label="Next page"

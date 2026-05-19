@@ -24,6 +24,7 @@ class UserRead(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    profile_photo_url: str | None = None
     is_active: bool
     created_at: datetime
 
@@ -69,8 +70,8 @@ class RegisterOtpRequest(UserCreate):
     @field_validator("role")
     @classmethod
     def validate_public_role(cls, value: UserRole) -> UserRole:
-        if value not in {UserRole.doctor, UserRole.patient, UserRole.receptionist}:
-            raise ValueError("Role must be doctor, receptionist, or patient")
+        if value not in {UserRole.doctor, UserRole.lab_technician, UserRole.patient, UserRole.receptionist}:
+            raise ValueError("Role must be doctor, lab technician, receptionist, or patient")
         return value
 
 

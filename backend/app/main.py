@@ -6,8 +6,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import Base, engine
-from app.models import Appointment, Doctor, Patient, User
-from app.routers import appointments, auth, dashboard, doctors, patients, users
+from app.models import Appointment, Bill, Doctor, LabTest, MedicalRecord, Notification, Patient, Prescription, PrescriptionItem, User
+from app.routers import appointments, auth, billing, dashboard, doctors, lab_tests, medical_records, notifications, patients, prescriptions, users
 
 app = FastAPI(title=settings.project_name)
 
@@ -44,6 +44,12 @@ app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(patients.router, prefix=settings.api_prefix)
 app.include_router(doctors.router, prefix=settings.api_prefix)
 app.include_router(appointments.router, prefix=settings.api_prefix)
+app.include_router(billing.router, prefix=settings.api_prefix)
+app.include_router(billing.bills_router, prefix=settings.api_prefix)
+app.include_router(prescriptions.router, prefix=settings.api_prefix)
+app.include_router(lab_tests.router, prefix=settings.api_prefix)
+app.include_router(medical_records.router, prefix=settings.api_prefix)
+app.include_router(notifications.router, prefix=settings.api_prefix)
 app.include_router(dashboard.router, prefix=settings.api_prefix)
 app.include_router(users.router, prefix=settings.api_prefix)
 

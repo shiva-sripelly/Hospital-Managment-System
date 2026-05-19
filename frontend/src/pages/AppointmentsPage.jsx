@@ -53,10 +53,22 @@ export default function AppointmentsPage() {
   const isPatient = user?.role === "patient";
   const canAddAppointment = isAdmin || isReceptionist || isPatient;
   const canManageAppointments = isAdmin || isReceptionist;
+  const currentPatient = isPatient ? patients[0] : null;
 
-  const patientMap = useMemo(() => Object.fromEntries(patients.map((patient) => [patient.id, patient.full_name])), [patients]);
+  const patientMap = useMemo(() => {
+    const names = Object.fromEntries(patients.map((patient) => [patient.id, patient.full_name]));
+    if (isPatient) {
+      appointments.forEach((appointment) => {
+        names[appointment.patient_id] = user?.full_name || names[appointment.patient_id] || "My Profile";
+      });
+    }
+    return names;
+  }, [appointments, isPatient, patients, user?.full_name]);
   const doctorMap = useMemo(() => Object.fromEntries(doctors.map((doctor) => [doctor.id, doctor.full_name])), [doctors]);
-  const patientOptions = patients.map((patient) => ({ value: String(patient.id), label: `${patient.patient_code} - ${patient.full_name}` }));
+  const patientOptions = patients.map((patient) => ({
+    value: String(patient.id),
+    label: `${patient.patient_code} - ${isPatient ? user?.full_name || patient.full_name : patient.full_name}`
+  }));
   const doctorOptions = doctors.map((doctor) => ({ value: String(doctor.id), label: `${doctor.doctor_code} - ${doctor.full_name}` }));
 
   const columns = useMemo(
@@ -116,8 +128,15 @@ export default function AppointmentsPage() {
 
   function openCreate() {
     if (!canAddAppointment) return;
+    if (isPatient && !currentPatient) {
+      showToast("Your patient profile is not linked yet. Please contact reception.", "error");
+      return;
+    }
     setEditing(null);
-    setForm(emptyAppointment);
+    setForm({
+      ...emptyAppointment,
+      patient_id: isPatient && currentPatient ? String(currentPatient.id) : ""
+    });
     setErrors({});
     setModalOpen(true);
   }
@@ -147,7 +166,7 @@ export default function AppointmentsPage() {
     if (isDoctor && editing) {
       if (!form.status) nextErrors.status = "Status is required";
     } else {
-      if (!form.patient_id) nextErrors.patient_id = "Patient is required";
+      if (!form.patient_id) nextErrors.patient_id = isPatient ? "Your patient profile is not linked" : "Patient is required";
       if (!form.doctor_id) nextErrors.doctor_id = "Doctor is required";
       if (!form.appointment_date) nextErrors.appointment_date = "Date is required";
       else if (!isTodayOrFuture(form.appointment_date)) nextErrors.appointment_date = "Appointment date cannot be in the past";
@@ -315,7 +334,21 @@ export default function AppointmentsPage() {
           <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit}>
             {!(isDoctor && editing) && (
               <>
-                <FormField label="Patient" name="patient_id" as="select" options={patientOptions} value={form.patient_id} onChange={handleChange} error={errors.patient_id} required />
+                {isPatient ? (
+                  <label className="space-y-1.5" htmlFor="patient_name">
+                    <span className="label">Patient</span>
+                    <input
+                      id="patient_name"
+                      className="field bg-slate-50 text-slate-700"
+                      value={user?.full_name || currentPatient?.full_name || "My Profile"}
+                      disabled
+                      readOnly
+                    />
+                    {errors.patient_id ? <span className="text-xs font-medium text-rose-600">{errors.patient_id}</span> : null}
+                  </label>
+                ) : (
+                  <FormField label="Patient" name="patient_id" as="select" options={patientOptions} value={form.patient_id} onChange={handleChange} error={errors.patient_id} required />
+                )}
                 <FormField label="Doctor" name="doctor_id" as="select" options={doctorOptions} value={form.doctor_id} onChange={handleChange} error={errors.doctor_id} required />
                 <FormField label="Date" name="appointment_date" type="date" min={todayDate()} value={form.appointment_date} onChange={handleChange} error={errors.appointment_date} required />
                 <FormField label="Time" name="appointment_time" type="time" min={form.appointment_date === todayDate() ? currentTime() : undefined} value={form.appointment_time} onChange={handleChange} error={errors.appointment_time} required />

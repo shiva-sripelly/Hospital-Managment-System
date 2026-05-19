@@ -58,6 +58,11 @@ def read_patients(
     patients = list_patients(db, skip=skip, limit=limit, search=search)
     if current_user.role.value == "patient":
         return [patient for patient in patients if patient.email == current_user.email]
+    if current_user.role.value not in {"admin", "receptionist", "doctor"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins, receptionists, and doctors can view patient records",
+        )
     return patients
 
 
@@ -70,10 +75,12 @@ def read_patient(
     patient = get_patient(db, patient_id)
     if patient is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
-    if current_user.role.value == "patient" and patient.email != current_user.email:
+    if current_user.role.value == "patient" and patient.email == current_user.email:
+        return patient
+    if current_user.role.value not in {"admin", "receptionist", "doctor"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Patients can only view their own profile",
+            detail="Only admins, receptionists, and doctors can view patient records",
         )
     return patient
 

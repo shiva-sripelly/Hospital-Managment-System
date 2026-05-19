@@ -53,8 +53,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-8">
-      <section className="grid w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-soft lg:grid-cols-[0.95fr_1.05fr]">
+    <main className="grid min-h-screen place-items-center bg-slate-50 px-4 py-8 dark:bg-slate-950">
+      <section className="grid w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-soft dark:border dark:border-slate-800 dark:bg-slate-900 dark:shadow-none lg:grid-cols-[0.95fr_1.05fr]">
         <div className="flex min-h-[420px] flex-col justify-between bg-brand-600 p-8 text-white">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-xl bg-white/15">
@@ -73,10 +73,10 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="p-8 sm:p-10">
+        <div className="p-8 dark:bg-slate-900 sm:p-10">
           <div className="mb-8">
-            <p className="text-sm font-bold uppercase tracking-wide text-brand-600">Welcome back</p>
-            <h2 className="mt-2 text-3xl font-bold text-slate-950">Sign in</h2>
+            <p className="text-sm font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">Welcome back</p>
+            <h2 className="mt-2 text-3xl font-bold text-slate-950 dark:text-white">Sign in</h2>
           </div>
           <form className="space-y-5" onSubmit={handleSubmit}>
             <label className="space-y-1.5">
@@ -108,7 +108,7 @@ export default function LoginPage() {
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                   onClick={() => setShowPassword((current) => !current)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
                   title={showPassword ? "Hide password" : "Show password"}
@@ -118,14 +118,14 @@ export default function LoginPage() {
               </div>
               {errors.password ? <span className="text-xs font-medium text-rose-600">{errors.password}</span> : null}
             </label>
-            <button type="submit" className="btn-primary w-full" disabled={loading}>
+            <button type="submit" className="auth-primary w-full" disabled={loading}>
               {loading ? "Signing in..." : "Login"}
             </button>
             <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-              <Link to="/register" className="btn-secondary flex-1">
+              <Link to="/register" className="auth-secondary flex-1">
                 Register
               </Link>
-              <Link to="/forgot-password" className="btn-secondary flex-1">
+              <Link to="/forgot-password" className="auth-secondary flex-1">
                 Forgot Password
               </Link>
             </div>

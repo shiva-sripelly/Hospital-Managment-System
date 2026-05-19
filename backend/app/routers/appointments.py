@@ -14,7 +14,9 @@ from app.services.appointment_service import (
     doctor_exists,
     find_doctor_slot,
     get_appointment,
+    get_doctor_by_email,
     get_doctor_for_appointment,
+    get_patient_by_email,
     get_patient_for_appointment,
     list_appointments,
     patient_exists,
@@ -62,10 +64,6 @@ def can_access_appointment(db: Session, current_user: User, appointment: Appoint
     if role in {"admin", "receptionist"}:
         return True
 
-    if role == "doctor":
-        doctor = get_doctor_for_appointment(db, appointment.doctor_id)
-        return doctor is not None and doctor.email == current_user.email
-
     if role == "patient":
         patient = get_patient_for_appointment(db, appointment.patient_id)
         return patient is not None and patient.email == current_user.email
@@ -79,10 +77,10 @@ def create_appointment_record(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> AppointmentRead:
-    if role_name(current_user) == "doctor":
+    if role_name(current_user) not in {"admin", "receptionist", "patient"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Doctors cannot create appointments",
+            detail="Only admins, receptionists, and patients can create appointments",
         )
 
     validate_appointment_references(db, appointment_data.patient_id, appointment_data.doctor_id)
@@ -113,16 +111,27 @@ def create_appointment_record(
     if patient and patient.email:
         send_notification_email(
             patient.email,
-            "Appointment booked",
-            f"Your appointment with {doctor.full_name if doctor else 'the doctor'} is booked for "
-            f"{appointment.appointment_date} at {appointment.appointment_time}.",
+            "Your appointment has been booked",
+            (
+                f"Dear {patient.full_name},\n\n"
+                f"Your appointment with {doctor.full_name if doctor else 'the doctor'} has been booked successfully.\n\n"
+                f"Appointment date: {appointment.appointment_date}\n"
+                f"Appointment time: {appointment.appointment_time}\n"
+                f"Status: {appointment.status.value.title()}\n\n"
+                "Please arrive a few minutes before your scheduled time and carry any relevant medical documents."
+            ),
         )
     if doctor:
         send_notification_email(
             doctor.email,
-            "New appointment booked",
-            f"An appointment with {patient.full_name if patient else 'a patient'} is booked for "
-            f"{appointment.appointment_date} at {appointment.appointment_time}.",
+            "New patient appointment assigned",
+            (
+                f"Dear {doctor.full_name},\n\n"
+                f"A new appointment has been booked with {patient.full_name if patient else 'a patient'}.\n\n"
+                f"Appointment date: {appointment.appointment_date}\n"
+                f"Appointment time: {appointment.appointment_time}\n"
+                f"Status: {appointment.status.value.title()}"
+            ),
         )
     return appointment
 
@@ -135,14 +144,15 @@ def read_appointments(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[AppointmentRead]:
-    appointments = list_appointments(db, skip=skip, limit=limit, search=search)
-    if role_name(current_user) in {"admin", "receptionist"}:
-        return appointments
-    return [
-        appointment
-        for appointment in appointments
-        if can_access_appointment(db, current_user, appointment)
-    ]
+    role = role_name(current_user)
+    if role == "patient":
+        patient = get_patient_by_email(db, current_user.email)
+        if patient is None:
+            return []
+        return list_appointments(db, skip=skip, limit=limit, search=search, patient_id=patient.id)
+    if role in {"admin", "receptionist"}:
+        return list_appointments(db, skip=skip, limit=limit, search=search)
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot view appointments")
 
 
 @router.get("/{appointment_id}", response_model=AppointmentRead)
@@ -175,20 +185,6 @@ def update_appointment_record(
 
     data = appointment_data.model_dump(exclude_unset=True)
     role = role_name(current_user)
-    if role == "doctor":
-        if not can_access_appointment(db, current_user, appointment):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Doctors can only update their assigned appointments",
-            )
-        blocked_fields = set(data) - {"status", "notes"}
-        if blocked_fields:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Doctors can only update appointment status and notes",
-            )
-        return update_appointment(db, appointment, appointment_data)
-
     if role not in {"admin", "receptionist"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

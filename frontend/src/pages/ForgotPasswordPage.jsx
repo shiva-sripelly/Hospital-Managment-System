@@ -67,10 +67,10 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-8">
-      <section className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-soft">
-        <p className="text-sm font-bold uppercase tracking-wide text-brand-600">Account recovery</p>
-        <h1 className="mt-2 text-3xl font-bold text-slate-950">Forgot Password</h1>
+    <main className="grid min-h-screen place-items-center bg-slate-50 px-4 py-8 dark:bg-slate-950">
+      <section className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-soft dark:border dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+        <p className="text-sm font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">Account recovery</p>
+        <h1 className="mt-2 text-3xl font-bold text-slate-950 dark:text-white">Forgot Password</h1>
         <form className="mt-8 grid gap-4" onSubmit={otpSent ? resetPassword : requestOtp}>
           <FormField label="Registered Email" name="email" type="email" value={form.email} onChange={handleChange} error={errors.email} required />
           {otpSent ? (
@@ -79,10 +79,10 @@ export default function ForgotPasswordPage() {
               <FormField label="New Password" name="new_password" type="password" value={form.new_password} onChange={handleChange} error={errors.new_password} required />
             </>
           ) : null}
-          <button type="submit" className="btn-primary" disabled={loading}>
+          <button type="submit" className="auth-primary" disabled={loading}>
             {loading ? "Please wait..." : otpSent ? "Reset Password" : "Send OTP"}
           </button>
-          <Link to="/login" className="btn-secondary">
+          <Link to="/login" className="auth-secondary">
             Back to Login
           </Link>
         </form>

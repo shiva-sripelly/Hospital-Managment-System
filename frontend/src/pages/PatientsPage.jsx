@@ -51,6 +51,7 @@ export default function PatientsPage() {
   const { showToast } = useToast();
   const canAddPatient = ["admin", "receptionist"].includes(user?.role);
   const canManagePatients = user?.role === "admin";
+  const isReceptionist = user?.role === "receptionist";
 
   const columns = useMemo(
     () => [
@@ -194,8 +195,8 @@ export default function PatientsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Patients"
-        description="Create and manage patient records."
+        title={isReceptionist ? "Patient Registration" : "Patients"}
+        description={isReceptionist ? "Register new patient records." : "Create and manage patient records."}
         action={
           canAddPatient ? (
             <button type="button" className="btn-primary" onClick={openCreate}>

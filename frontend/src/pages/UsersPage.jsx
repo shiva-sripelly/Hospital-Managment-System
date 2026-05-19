@@ -11,9 +11,9 @@ import { getApiError } from "../services/api";
 import { userService } from "../services/userService";
 import { isValidEmail } from "../utils/validation";
 
-const roleOptions = ["admin", "receptionist", "doctor", "patient"].map((value) => ({
+const roleOptions = ["admin", "receptionist", "doctor", "lab_technician", "patient"].map((value) => ({
   value,
-  label: value.charAt(0).toUpperCase() + value.slice(1)
+  label: value.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ")
 }));
 const PAGE_SIZE = 10;
 

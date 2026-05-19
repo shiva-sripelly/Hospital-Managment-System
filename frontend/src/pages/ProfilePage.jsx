@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Edit3, Mail, ShieldCheck, UserCircle2 } from "lucide-react";
+import { Camera, Edit3, Mail, ShieldCheck, UserCircle2 } from "lucide-react";
 import FormField from "../components/FormField";
 import LoadingSpinner from "../components/LoadingSpinner";
 import PageHeader from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { authService } from "../services/authService";
-import { getApiError } from "../services/api";
+import { api, getApiError } from "../services/api";
 import { isValidEmail } from "../utils/validation";
 
 export default function ProfilePage() {
@@ -17,7 +17,9 @@ export default function ProfilePage() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(!user);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [editing, setEditing] = useState(false);
+  const profilePhotoUrl = profile?.profile_photo_url ? `${api.defaults.baseURL}${profile.profile_photo_url}` : "";
 
   useEffect(() => {
     async function loadProfile() {
@@ -76,6 +78,23 @@ export default function ProfilePage() {
     setEditing(false);
   }
 
+  async function handlePhotoChange(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const { data } = await authService.uploadProfilePhoto(file);
+      setProfile(data);
+      updateStoredUser(data);
+      showToast("Profile photo updated", "success");
+    } catch (error) {
+      showToast(getApiError(error, "Failed to update profile photo"), "error");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
   if (loading) return <LoadingSpinner label="Loading profile" />;
 
   return (
@@ -95,12 +114,27 @@ export default function ProfilePage() {
       <section className="panel overflow-hidden">
         <div className="border-b border-slate-200 bg-brand-50 px-6 py-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="grid h-20 w-20 place-items-center rounded-full bg-brand-600 text-white shadow-sm">
-              <UserCircle2 className="h-12 w-12" />
+            <div className="relative h-20 w-20">
+              {profilePhotoUrl ? (
+                <img
+                  src={profilePhotoUrl}
+                  alt={profile?.full_name || "Profile"}
+                  className="h-20 w-20 rounded-full object-cover shadow-sm ring-4 ring-white"
+                />
+              ) : (
+                <div className="grid h-20 w-20 place-items-center rounded-full bg-brand-600 text-white shadow-sm">
+                  <UserCircle2 className="h-12 w-12" />
+                </div>
+              )}
+              <label className="absolute -bottom-1 -right-1 grid h-8 w-8 cursor-pointer place-items-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-brand-50 hover:text-brand-700" title="Change photo" aria-label="Change photo">
+                <Camera className="h-4 w-4" />
+                <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={handlePhotoChange} disabled={uploadingPhoto} />
+              </label>
             </div>
             <div>
               <h2 className="text-2xl font-bold text-slate-950">{profile?.full_name}</h2>
               <p className="mt-1 text-sm font-medium capitalize text-slate-500">{profile?.role}</p>
+              {uploadingPhoto ? <p className="mt-1 text-xs font-semibold text-brand-700">Uploading photo...</p> : null}
             </div>
           </div>
         </div>
