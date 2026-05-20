@@ -1,14 +1,16 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.models.patient import BloodGroup, Gender
 from app.models.user import UserRole
+from app.schemas.patient import validate_phone
 
 
 class UserBase(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=120)
     email: EmailStr = Field(..., max_length=255)
-    role: UserRole = UserRole.receptionist
+    role: UserRole = UserRole.patient
 
     @field_validator("email")
     @classmethod
@@ -18,6 +20,13 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=72)
+
+    @field_validator("role")
+    @classmethod
+    def validate_public_role(cls, value: UserRole) -> UserRole:
+        if value != UserRole.patient:
+            raise ValueError("Public registration is only available for patients")
+        return value
 
 
 class UserRead(UserBase):
@@ -66,12 +75,23 @@ class UserLogin(BaseModel):
 
 class RegisterOtpRequest(UserCreate):
     role: UserRole
+    gender: Gender
+    dob: date
+    phone: str = Field(..., min_length=7, max_length=20)
+    address: str | None = None
+    blood_group: BloodGroup | None = None
+    emergency_contact: str | None = Field(default=None, max_length=120)
 
-    @field_validator("role")
+    @field_validator("phone")
     @classmethod
-    def validate_public_role(cls, value: UserRole) -> UserRole:
-        if value not in {UserRole.doctor, UserRole.lab_technician, UserRole.patient, UserRole.receptionist}:
-            raise ValueError("Role must be doctor, lab technician, receptionist, or patient")
+    def normalize_phone(cls, value: str) -> str:
+        return validate_phone(value) or value
+
+    @field_validator("dob")
+    @classmethod
+    def validate_dob(cls, value: date) -> date:
+        if value > date.today():
+            raise ValueError("Date of birth cannot be in the future")
         return value
 
 

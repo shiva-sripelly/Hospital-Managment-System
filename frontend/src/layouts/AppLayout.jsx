@@ -2,8 +2,10 @@ import React from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Bell,
+  BrainCircuit,
   CalendarDays,
   ClipboardList,
+  FileBarChart,
   FlaskConical,
   FileText,
   FolderOpen,
@@ -11,11 +13,15 @@ import {
   LogOut,
   Menu,
   Moon,
+  PackageSearch,
+  Pill,
+  ReceiptText,
   Stethoscope,
   Sun,
   UserCog,
   UserCircle2,
   Users,
+  UploadCloud,
   X
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -29,16 +35,25 @@ const navItems = [
   { to: "/patients", label: "Patients", roleLabels: { receptionist: "Patient Registration" }, icon: Users, roles: ["admin", "receptionist", "doctor"] },
   { to: "/appointments", label: "Appointments", icon: CalendarDays, roles: ["admin", "receptionist", "patient"] },
   { to: "/billing", label: "Billing", icon: FileText, roles: ["admin", "receptionist", "patient"] },
+  { to: "/pharmacy", label: "Pharmacy", icon: Pill, roles: ["admin"] },
+  { to: "/inventory", label: "Inventory", icon: PackageSearch, roles: ["admin"] },
   { to: "/prescriptions", label: "Prescriptions", icon: ClipboardList, roles: ["admin", "doctor", "patient"] },
-  { to: "/lab-reports", label: "Lab Reports", icon: FlaskConical, roles: ["admin", "doctor", "lab_technician", "patient"] },
+  { to: "/lab-reports", label: "Lab Reports", icon: FlaskConical, roles: ["admin", "doctor", "patient"] },
+  { to: "/lab-report-upload", label: "Lab Report Upload", icon: UploadCloud, roles: ["lab_technician"] },
+  { to: "/test-status-update", label: "Test Status Update", icon: FlaskConical, roles: ["lab_technician"] },
   { to: "/medical-records", label: "Medical Records", icon: FolderOpen, roles: ["admin"] },
+  { to: "/staff", label: "Staff", icon: Users, roles: ["admin"] },
+  { to: "/payroll", label: "Payroll", icon: ReceiptText, roles: ["admin"] },
+  { to: "/reports", label: "Reports", icon: FileBarChart, roles: ["admin"] },
+  { to: "/audit-logs", label: "Audit Logs", icon: ClipboardList, roles: ["admin"] },
+  { to: "/ai-insights", label: "AI Insights", icon: BrainCircuit, roles: ["admin"] },
   { to: "/users", label: "Users", icon: UserCog, roles: ["admin"] }
 ];
 
 function getVisibleNavItems(role) {
   const visibleItems = navItems.filter((item) => item.roles.includes(role));
   if (role === "receptionist") {
-    const order = ["/appointments", "/billing", "/patients"];
+    const order = ["/appointments", "/billing", "/pharmacy", "/inventory", "/patients"];
     return [...visibleItems].sort((first, second) => order.indexOf(first.to) - order.indexOf(second.to));
   }
   return visibleItems;
@@ -136,11 +151,11 @@ export default function AppLayout() {
         />
       )}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-72 border-r border-slate-200 bg-white transition-transform dark:border-white/10 dark:bg-[#0f172a] lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform dark:border-white/10 dark:bg-[#0f172a] lg:translate-x-0 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-16 items-center justify-between border-b border-slate-100 px-5 dark:border-white/10">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-5 dark:border-white/10">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-brand-600 text-white shadow-sm shadow-brand-950/20 dark:bg-brand-500 dark:shadow-brand-500/15">
               <Stethoscope className="h-5 w-5" />
@@ -159,7 +174,7 @@ export default function AppLayout() {
             <X className="h-5 w-5" />
           </button>
         </div>
-        <nav className="space-y-1 px-3 py-5">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-5">
           {getVisibleNavItems(user?.role).map((item) => {
             const Icon = item.icon;
             const label = item.roleLabels?.[user?.role] || item.label;

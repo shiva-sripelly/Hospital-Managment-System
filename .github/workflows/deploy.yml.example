@@ -1,0 +1,21 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy on Ubuntu server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /opt/hms/Hospital-Managment-System
+            git pull origin main
+            docker compose --env-file .env.deploy -f docker-compose.prod.yml build
+            docker compose --env-file .env.deploy -f docker-compose.prod.yml run --rm backend alembic upgrade head
+            docker compose --env-file .env.deploy -f docker-compose.prod.yml up -d

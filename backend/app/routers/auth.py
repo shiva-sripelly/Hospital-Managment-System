@@ -18,18 +18,18 @@ from app.schemas.auth import (
     RegisterVerify,
     ResetPasswordRequest,
     Token,
-    UserCreate,
     UserLogin,
     UserRead,
 )
 from app.services.auth_service import (
     authenticate_user,
-    create_user,
+    create_patient_user,
     get_user_by_email,
     update_user_password,
 )
 from app.services.email_service import EmailDeliveryError, send_notification_email, send_otp_email
 from app.services.otp_service import create_otp, verify_otp
+from app.services.patient_service import find_patient_by_unique_fields
 from app.utils.security import create_access_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -40,30 +40,11 @@ MAX_PROFILE_PHOTO_SIZE = 3 * 1024 * 1024
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def register_user(user_data: UserCreate, db: Session = Depends(get_db)) -> User:
-    existing_user = get_user_by_email(db, user_data.email)
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A user with this email already exists",
-        )
-    user = create_user(db, user_data)
-    send_notification_email(
-        user.email,
-        "Your Hospital Management System account was created",
-        (
-            f"Dear {user.full_name},\n\n"
-            "Your account has been successfully created and verified through OTP authentication.\n\n"
-            "You can now securely sign in to the Hospital Management System using the following email address:\n\n"
-            f"Email: {user.email}\n"
-            f"Role: {user.role.value.replace('_', ' ').title()}\n\n"
-            "If you did not request this account creation or believe this activity was unauthorized, "
-            "please contact the system administrator immediately.\n\n"
-            "Thank you,\n"
-            "Hospital Management System"
-        ),
+def register_user() -> User:
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail="Direct registration is disabled. Use OTP registration.",
     )
-    return user
 
 
 @router.post("/register/request-otp", response_model=MessageResponse)
@@ -76,6 +57,12 @@ def request_registration_otp(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="A user with this email already exists",
+        )
+    existing_patient = find_patient_by_unique_fields(db, phone=user_data.phone, email=user_data.email)
+    if existing_patient:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A patient with this phone or email already exists",
         )
 
     otp = create_otp(db, user_data.email, OtpPurpose.registration)
@@ -100,13 +87,19 @@ def verify_registration(
             status_code=status.HTTP_409_CONFLICT,
             detail="A user with this email already exists",
         )
+    existing_patient = find_patient_by_unique_fields(db, phone=user_data.phone, email=user_data.email)
+    if existing_patient:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A patient with this phone or email already exists",
+        )
     if not verify_otp(db, user_data.email, user_data.otp, OtpPurpose.registration):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired OTP",
         )
 
-    user = create_user(db, user_data)
+    user = create_patient_user(db, user_data)
     send_notification_email(
         user.email,
         "Your Hospital Management System account was created",

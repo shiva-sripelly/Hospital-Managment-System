@@ -54,6 +54,7 @@ export default function PrescriptionsPage() {
   const isAdmin = user?.role === "admin";
   const isPatient = user?.role === "patient";
   const canManagePrescriptions = ["admin", "doctor"].includes(user?.role);
+  const canViewAppointments = ["admin", "receptionist", "patient"].includes(user?.role);
 
   const patientMap = useMemo(() => {
     const names = Object.fromEntries(patients.map((patient) => [patient.id, patient.full_name]));
@@ -92,20 +93,24 @@ export default function PrescriptionsPage() {
   async function loadData(nextPage = page, nextSearch = activeSearch) {
     setLoading(true);
     try {
-      const [prescriptionResponse, patientResponse, doctorResponse, appointmentResponse] = await Promise.all([
+      const requests = [
         prescriptionService.list({
           skip: (nextPage - 1) * PAGE_SIZE,
           limit: PAGE_SIZE,
           search: nextSearch || undefined
         }),
         patientService.list({ limit: 200 }),
-        doctorService.list({ limit: 200 }),
-        appointmentService.list({ limit: 200 })
-      ]);
+        doctorService.list({ limit: 200 })
+      ];
+      if (canViewAppointments) {
+        requests.push(appointmentService.list({ limit: 200 }));
+      }
+
+      const [prescriptionResponse, patientResponse, doctorResponse, appointmentResponse] = await Promise.all(requests);
       setPrescriptions(prescriptionResponse.data);
       setPatients(patientResponse.data);
       setDoctors(doctorResponse.data);
-      setAppointments(appointmentResponse.data);
+      setAppointments(appointmentResponse?.data || []);
     } catch (error) {
       showToast(getApiError(error, "Failed to load prescriptions"), "error");
     } finally {

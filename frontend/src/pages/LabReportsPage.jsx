@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw, UploadCloud } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import DataTable from "../components/DataTable";
 import FormField from "../components/FormField";
@@ -9,7 +9,7 @@ import Modal from "../components/Modal";
 import PageHeader from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
-import { getApiError } from "../services/api";
+import { api, getApiError } from "../services/api";
 import { doctorService } from "../services/doctorService";
 import { labTestService } from "../services/labTestService";
 import { patientService } from "../services/patientService";
@@ -37,7 +37,7 @@ function statusLabel(value) {
   return statusOptions.find((option) => option.value === value)?.label || value;
 }
 
-export default function LabReportsPage() {
+export default function LabReportsPage({ mode = "default" }) {
   const [labTests, setLabTests] = useState([]);
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -49,6 +49,7 @@ export default function LabReportsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyLabTest);
+  const [reportFile, setReportFile] = useState(null);
   const [errors, setErrors] = useState({});
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -59,6 +60,14 @@ export default function LabReportsPage() {
   const canCreateRequest = isAdmin || isDoctor;
   const canEditReports = isAdmin || isDoctor || isLabTechnician;
   const canUpdateReportFields = isAdmin || isLabTechnician;
+  const isUploadMode = mode === "upload";
+  const isStatusMode = mode === "status";
+  const pageTitle = mode === "upload" ? "Lab Report Upload" : mode === "status" ? "Test Status Update" : "Lab Reports";
+  const pageDescription = mode === "upload"
+    ? "Upload report references for requested laboratory tests."
+    : mode === "status"
+      ? "Update laboratory test progress and completion status."
+      : "Create lab requests, upload report references, and update test status.";
 
   const patientMap = useMemo(() => {
     const names = Object.fromEntries(patients.map((patient) => [patient.id, patient.full_name]));
@@ -84,11 +93,13 @@ export default function LabReportsPage() {
   const doctorOptions = doctors.map((doctor) => ({ value: String(doctor.id), label: `${doctor.doctor_code} - ${doctor.full_name}` }));
 
   const columns = useMemo(
-    () => [
-      { key: "patient_id", label: "Patient", render: (row) => patientMap[row.patient_id] || row.patient_id },
-      { key: "doctor_id", label: "Doctor", render: (row) => doctorMap[row.doctor_id] || row.doctor_id },
-      { key: "test_name", label: "Test" },
-      {
+    () => {
+      const baseColumns = [
+        { key: "patient_id", label: "Patient", render: (row) => patientMap[row.patient_id] || row.patient_id },
+        { key: "doctor_id", label: "Doctor", render: (row) => doctorMap[row.doctor_id] || row.doctor_id },
+        { key: "test_name", label: "Test" }
+      ];
+      const statusColumn = {
         key: "test_status",
         label: "Status",
         render: (row) => (
@@ -96,11 +107,28 @@ export default function LabReportsPage() {
             {statusLabel(row.test_status)}
           </span>
         )
-      },
-      { key: "report_file", label: "Report", render: (row) => row.report_file || "-" },
-      { key: "created_at", label: "Created", render: (row) => row.created_at?.slice(0, 10) || "-" }
-    ],
-    [doctorMap, patientMap]
+      };
+      const reportColumn = {
+        key: "report_file",
+        label: "Report",
+        render: (row) => row.report_file ? (
+          <a
+            href={row.report_file.startsWith("http") ? row.report_file : `${api.defaults.baseURL}${row.report_file}`}
+            target="_blank"
+            rel="noreferrer"
+            className="font-bold text-brand-700 hover:text-brand-800"
+          >
+            View file
+          </a>
+        ) : "-"
+      };
+      const createdColumn = { key: "created_at", label: "Created", render: (row) => row.created_at?.slice(0, 10) || "-" };
+
+      if (isUploadMode) return [...baseColumns, reportColumn, createdColumn];
+      if (isStatusMode) return [...baseColumns, statusColumn, createdColumn];
+      return [...baseColumns, statusColumn, reportColumn, createdColumn];
+    },
+    [doctorMap, isStatusMode, isUploadMode, patientMap]
   );
 
   async function loadData(nextPage = page, nextSearch = activeSearch) {
@@ -145,6 +173,7 @@ export default function LabReportsPage() {
       ...emptyLabTest,
       doctor_id: isDoctor && currentDoctor ? String(currentDoctor.id) : ""
     });
+    setReportFile(null);
     setErrors({});
     setModalOpen(true);
   }
@@ -159,6 +188,7 @@ export default function LabReportsPage() {
       report_file: labTest.report_file || "",
       remarks: labTest.remarks || ""
     });
+    setReportFile(null);
     setErrors({});
     setModalOpen(true);
   }
@@ -169,12 +199,23 @@ export default function LabReportsPage() {
     setErrors((current) => ({ ...current, [name]: "" }));
   }
 
+  function handleReportFileChange(event) {
+    const file = event.target.files?.[0] || null;
+    setReportFile(file);
+    setErrors((current) => ({ ...current, report_file: "" }));
+  }
+
   function validate() {
     const nextErrors = {};
-    if (!form.patient_id) nextErrors.patient_id = "Patient is required";
-    if (!form.doctor_id) nextErrors.doctor_id = "Doctor is required";
-    if (!form.test_name.trim()) nextErrors.test_name = "Test name is required";
-    if (canUpdateReportFields && form.test_status === "completed" && !form.report_file.trim()) {
+    if (!isLabTechnician) {
+      if (!form.patient_id) nextErrors.patient_id = "Patient is required";
+      if (!form.doctor_id) nextErrors.doctor_id = "Doctor is required";
+      if (!form.test_name.trim()) nextErrors.test_name = "Test name is required";
+    }
+    if (isUploadMode && !reportFile) {
+      nextErrors.report_file = "Report file is required";
+    }
+    if (canUpdateReportFields && !isStatusMode && form.test_status === "completed" && !form.report_file.trim()) {
       nextErrors.report_file = "Report file is required when completed";
     }
     setErrors(nextErrors);
@@ -194,10 +235,14 @@ export default function LabReportsPage() {
       remarks: form.remarks || null
     };
     let payload = basePayload;
-    if (editing && isLabTechnician) {
+    if (editing && isLabTechnician && isUploadMode) {
+      payload = {
+        report_file: form.report_file || null,
+        remarks: form.remarks || null
+      };
+    } else if (editing && isLabTechnician && isStatusMode) {
       payload = {
         test_status: form.test_status,
-        report_file: form.report_file || null,
         remarks: form.remarks || null
       };
     }
@@ -209,7 +254,13 @@ export default function LabReportsPage() {
     }
 
     try {
-      if (editing) {
+      if (editing && isUploadMode) {
+        const uploadPayload = new FormData();
+        uploadPayload.append("file", reportFile);
+        if (form.remarks) uploadPayload.append("remarks", form.remarks);
+        await labTestService.uploadReportFile(editing.id, uploadPayload);
+        showToast("Lab report uploaded", "success");
+      } else if (editing) {
         await labTestService.update(editing.id, payload);
         showToast("Lab report updated", "success");
       } else {
@@ -248,11 +299,31 @@ export default function LabReportsPage() {
     await loadData(nextPage, activeSearch);
   }
 
+  function renderLabTechnicianActions(labTest) {
+    if (isUploadMode) {
+      return (
+        <button type="button" onClick={() => openEdit(labTest)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700" aria-label="Upload Report" title="Upload Report">
+          <UploadCloud className="h-4 w-4" />
+          Upload
+        </button>
+      );
+    }
+    if (isStatusMode) {
+      return (
+        <button type="button" onClick={() => openEdit(labTest)} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700" aria-label="Update Status" title="Update Status">
+          <RefreshCw className="h-4 w-4" />
+          Status
+        </button>
+      );
+    }
+    return undefined;
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Lab Reports"
-        description="Create lab requests, upload report references, and update test status."
+        title={pageTitle}
+        description={pageDescription}
         action={canCreateRequest ? (
           <button type="button" className="btn-primary" onClick={openCreate}>
             <Plus className="h-4 w-4" /> Add Lab Request
@@ -263,7 +334,14 @@ export default function LabReportsPage() {
       {loading ? (
         <LoadingSpinner label="Loading lab reports" />
       ) : (
-        <DataTable columns={columns} data={labTests} emptyText="No lab reports found" onEdit={canEditReports ? openEdit : undefined} onDelete={isAdmin ? handleDelete : undefined} />
+        <DataTable
+          columns={columns}
+          data={labTests}
+          emptyText={isUploadMode ? "No lab reports ready for upload" : isStatusMode ? "No lab tests found" : "No lab reports found"}
+          actions={isLabTechnician ? renderLabTechnicianActions : undefined}
+          onEdit={!isLabTechnician && canEditReports ? openEdit : undefined}
+          onDelete={isAdmin ? handleDelete : undefined}
+        />
       )}
       {modalOpen && (
         <Modal title={editing ? "Edit Lab Report" : "Add Lab Request"} onClose={() => setModalOpen(false)}>
@@ -290,7 +368,34 @@ export default function LabReportsPage() {
                 <FormField label="Test Name" name="test_name" value={form.test_name} onChange={handleChange} error={errors.test_name} required />
               </>
             )}
-            {canUpdateReportFields ? (
+            {isUploadMode ? (
+              <label className="space-y-1.5" htmlFor="report_file_upload">
+                <span className="label">Report File</span>
+                <input
+                  id="report_file_upload"
+                  name="report_file_upload"
+                  type="file"
+                  accept=".pdf,image/jpeg,image/png,image/webp"
+                  onChange={handleReportFileChange}
+                  required
+                  className={`field file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-sm file:font-bold file:text-brand-700 hover:file:bg-brand-100 ${errors.report_file ? "border-rose-300 focus:border-rose-500 focus:ring-rose-100" : ""}`}
+                />
+                {reportFile ? <span className="text-xs font-medium text-slate-500">{reportFile.name}</span> : null}
+                {form.report_file ? (
+                  <a
+                    href={form.report_file.startsWith("http") ? form.report_file : `${api.defaults.baseURL}${form.report_file}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-xs font-bold text-brand-700 hover:text-brand-800"
+                  >
+                    View current report
+                  </a>
+                ) : null}
+                {errors.report_file ? <span className="text-xs font-medium text-rose-600">{errors.report_file}</span> : null}
+              </label>
+            ) : isStatusMode ? (
+              <FormField label="Status" name="test_status" as="select" options={statusOptions} value={form.test_status} onChange={handleChange} />
+            ) : canUpdateReportFields ? (
               <>
                 <FormField label="Status" name="test_status" as="select" options={statusOptions} value={form.test_status} onChange={handleChange} />
                 <FormField label="Report File" name="report_file" value={form.report_file} onChange={handleChange} error={errors.report_file} placeholder="report.pdf or report URL" />

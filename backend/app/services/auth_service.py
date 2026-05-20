@@ -1,8 +1,10 @@
 from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session
 
+from app.models.patient import Patient
 from app.models.user import User
-from app.schemas.auth import UserCreate, UserUpdate
+from app.schemas.auth import RegisterVerify, UserCreate, UserUpdate
+from app.services.patient_service import generate_patient_code
 from app.utils.security import hash_password, verify_password
 
 
@@ -47,6 +49,30 @@ def create_user(db: Session, user_data: UserCreate) -> User:
         role=user_data.role,
     )
     db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def create_patient_user(db: Session, user_data: RegisterVerify) -> User:
+    user = User(
+        full_name=user_data.full_name.strip(),
+        email=user_data.email,
+        password_hash=hash_password(user_data.password),
+        role=user_data.role,
+    )
+    patient = Patient(
+        patient_code=generate_patient_code(db),
+        full_name=user_data.full_name.strip(),
+        gender=user_data.gender,
+        dob=user_data.dob,
+        phone=user_data.phone,
+        email=user_data.email,
+        address=user_data.address,
+        blood_group=user_data.blood_group,
+        emergency_contact=user_data.emergency_contact,
+    )
+    db.add_all([user, patient])
     db.commit()
     db.refresh(user)
     return user

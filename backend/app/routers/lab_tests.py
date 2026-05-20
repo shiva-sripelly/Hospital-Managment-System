@@ -1,4 +1,7 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -25,6 +28,10 @@ router = APIRouter(
     tags=["Laboratory Management"],
     dependencies=[Depends(get_current_user)],
 )
+
+LAB_REPORT_DIR = Path(__file__).resolve().parent.parent / "static" / "lab_reports"
+ALLOWED_LAB_REPORT_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
+MAX_LAB_REPORT_SIZE = 10 * 1024 * 1024
 
 
 def role_name(user: User) -> str:
@@ -175,6 +182,55 @@ def update_lab_test_record(
             NotificationType.lab,
             background_tasks,
         )
+    return lab_test
+
+
+@router.post("/{lab_test_id}/report-file", response_model=LabTestRead)
+async def upload_lab_report_file(
+    lab_test_id: int,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    remarks: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> LabTestRead:
+    if role_name(current_user) not in {"admin", "lab_technician"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins and lab technicians can upload lab reports")
+
+    lab_test = get_lab_test(db, lab_test_id)
+    if lab_test is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lab test not found")
+    if not can_access_lab_test(db, current_user, lab_test):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot upload this lab report")
+    if file.content_type not in ALLOWED_LAB_REPORT_TYPES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Report file must be a PDF, JPG, PNG, or WebP file")
+    if not file.filename:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="File is required")
+
+    content = await file.read()
+    if len(content) > MAX_LAB_REPORT_SIZE:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Report file must be 10 MB or less")
+
+    LAB_REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = Path(file.filename).suffix.lower()
+    stored_name = f"{uuid4().hex}{suffix}"
+    stored_path = LAB_REPORT_DIR / stored_name
+    stored_path.write_bytes(content)
+
+    lab_test.report_file = f"/static/lab_reports/{stored_name}"
+    lab_test.remarks = remarks or lab_test.remarks
+    db.commit()
+    db.refresh(lab_test)
+
+    patient = get_patient(db, lab_test.patient_id)
+    create_notification_for_email(
+        db,
+        patient.email if patient else None,
+        "Lab report uploaded",
+        f"Your {lab_test.test_name} lab report has been uploaded.",
+        NotificationType.lab,
+        background_tasks,
+    )
     return lab_test
 
 
