@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import Base, engine
-from app.models import Appointment, Bill, Doctor, LabTest, MedicalRecord, Notification, Patient, Prescription, PrescriptionItem, User
+from app import models  # noqa: F401 - imports model metadata before table creation
 from app.routers import appointments, auth, billing, dashboard, doctors, lab_tests, medical_records, notifications, patients, prescriptions, users
 
 app = FastAPI(title=settings.project_name)

@@ -10,6 +10,4 @@ psycopg[binary]==3.3.2
 fastapi-mail
 python-multipart==0.0.20
 reportlab==4.2.5
-celery
-redis
 websockets==14.2

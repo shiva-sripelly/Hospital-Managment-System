@@ -6,10 +6,10 @@ FastAPI backend for the Hospital Management System.
 
 ```powershell
 cd backend
-app\venv\Scripts\python.exe -m pip install -r requirements.txt
+venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Update `.env` with your PostgreSQL credentials:
+Create or update `.env` with your PostgreSQL credentials. `DATABASE_URL` is required; the backend does not fall back to SQLite.
 
 ```env
 DATABASE_URL=postgresql+psycopg://postgres:root@localhost:5432/hospital_management_db
@@ -21,7 +21,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 
 ```powershell
 cd backend
-app\venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 API docs:

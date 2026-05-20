@@ -9,11 +9,15 @@ from app.env import load_env_file
 
 load_env_file()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./hospital_management.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is required. Configure it in backend/.env.")
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+if DATABASE_URL.startswith("sqlite"):
+    raise RuntimeError("SQLite is not supported. Set DATABASE_URL to your PostgreSQL connection string.")
+
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

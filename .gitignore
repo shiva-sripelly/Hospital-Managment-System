@@ -3,7 +3,6 @@ __pycache__/
 *.db
 .env
 venv/
-backend/app/venv/
 node_modules/
 dist/
 build/
